@@ -3,8 +3,8 @@ package test;
 import java.util.ArrayList;
 import java.util.Map;
 
-import bin.ConfigurationFileLoader;
-import bin.QuestionProcessing;
+import configuration.ConfigurationFileLoader;
+import question.QuestionProcessing;
 
 public class AskTest {
 
