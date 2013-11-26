@@ -30,13 +30,11 @@ public class ConnectionUtil {
 			Class.forName("sun.jdbc.odbc.JdbcOdbcDriver");
 			// System.out.println("connection success");
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		try {
 			con = DriverManager.getConnection(url, username, password);
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -46,7 +44,6 @@ public class ConnectionUtil {
 			Statement sta = con.createStatement();
 			sta.execute(sql);
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
@@ -58,7 +55,6 @@ public class ConnectionUtil {
 			Statement sta = con.createStatement();
 			rs = sta.executeQuery(sql);
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return rs;
@@ -70,7 +66,6 @@ public class ConnectionUtil {
 				if (!con.isClosed())
 					con.close();
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

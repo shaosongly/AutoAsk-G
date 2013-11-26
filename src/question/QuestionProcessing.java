@@ -4,9 +4,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
+
+
 
 import configuration.ConfigurationFileLoader;
 import dao.ConnectionUtil;
@@ -14,14 +14,7 @@ import dao.ConnectionUtil;
 public class QuestionProcessing {
 	
 	private ConfigurationFileLoader loader = null;
-	private ConnectionUtil con = null;
-	private String[] configSet = { "config_air_conditioner", "config_external",
-			"config_internal", "config_light", "config_manipulate",
-			"config_multimedia", "config_safety", "config_seat",
-			"config_tech", "config_window" };
-	private String[] autoSet = { "auto_body", "auto_chassis", "auto_color",
-			"auto_engine", "auto_gearbox", "auto_tire" };
-	
+	private ConnectionUtil con = null;	
 	public QuestionProcessing(String path) {
 		super();
 		loader=new ConfigurationFileLoader(path);
@@ -29,7 +22,11 @@ public class QuestionProcessing {
 		con = new ConnectionUtil();
 		con.dbConnect();
 	}
-
+    /**
+     * 问题解析，解析传入的问题，将参数对存入Map集合
+     * @param question
+     * @return
+     */
 	public Map<String,ArrayList<String>> questionParse(String question)
 	{
 		Map<String,ArrayList<String>> params=new HashMap<String,ArrayList<String>>();
@@ -57,6 +54,7 @@ public class QuestionProcessing {
 		}
 		return params;
 	}
+	
 	/**
 	 * 返回问题类型 -1表示异常 1判断，2表示2个主体的判断，11表示查询，12表示比较
 	 * @param params
@@ -82,11 +80,15 @@ public class QuestionProcessing {
 			return -1;
 		if(countS1!=0)
 			flag=1;
-		else
+		else																																																															
 			flag=2;
 		return qValue*10+flag;
 	}
 	
+	/**
+	 * 问题查询，根据不同问题类型，查询数据库获取信息
+	 * @param params
+	 */
 	public void questionQuery(Map<String, ArrayList<String>> params) {
 		int qType = questionClassification(params);
 		switch (qType) {
@@ -102,11 +104,13 @@ public class QuestionProcessing {
 			System.out.println(r2);
 			break;
 		case 11:
-			ArrayList<String>results=singleQuery(params,0);
+			String target = getTargetProp(params);
+			ArrayList<String>results=singleQuery(target,params,0);
 			System.out.println(results);
 			break;
 		case 12:
-			compareQuery(params);
+			String target2 = getTargetProp(params);
+			compareQuery(target2,params);
 			break;
 		default:
 			break;
@@ -114,183 +118,136 @@ public class QuestionProcessing {
 
 	}
 
-	private void compareQuery(Map<String, ArrayList<String>> params) {
-		// TODO Auto-generated method stub
-		
+	/**
+	 * 一个主体的判断
+	 * @param params
+	 * @param index
+	 * @return
+	 */
+	private boolean existQuery(Map<String, ArrayList<String>> params,int index) {
+		Map<String, ArrayList<String>> tables = getTables(params);
+		//System.out.println(tables);
+		ArrayList<String> autoIds= doesAutoIdExist(params, index, tables);
+		if(autoIds.size()>0)
+			return true;
+		else
+			return false;		
+	}
+	
+	/**
+	 * 两个主体的判断
+	 * @param params
+	 * @return
+	 */
+	private boolean existQuery2(Map<String, ArrayList<String>> params) {
+		return existQuery(params,0)&&existQuery(params,1);
 	}
 
-	private ArrayList<String> singleQuery(Map<String, ArrayList<String>> params,int index) {
-		// TODO Auto-generated method stub
+	/**
+	 * 查询单个主体的信息
+	 * @param target
+	 * @param params
+	 * @param index
+	 * @return
+	 */
+	private ArrayList<String> singleQuery(String target,Map<String, ArrayList<String>> params,int index) {
 		ArrayList<String> results = new ArrayList<String>();
 		Map<String, String> dbTables = loader.getDbTables();
 		Map<String, String> dbNames = loader.getDbNames();
-		String target = null, targetTable = null;
-		for (String key : params.keySet()) {
-			if (params.get(key) == null) {
-				target = key;
-				params.remove(key);
-				break;
-			}
-		}
-		targetTable = dbTables.get(target);
+		String targetTable =  dbTables.get(target);
 		target=dbNames.get(target);
 		Map<String, ArrayList<String>> tables = getTables(params);
 		if (tables.size() == 0
 				|| (tables.size() == 1 && tables.keySet().contains(targetTable))) {
-			ResultSet rs=getSqlAndQuery(index,params,tables,targetTable,target,null,null,null,null);
+			ResultSet rs=getSqlAndQuery(index,params,tables,targetTable,target);
 			try {
 				while(rs.next())
 					results.add(rs.getString(target));
 				rs.close();
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			
 		} else {
-			//System.out.println(tables);
-			if(!tables.keySet().contains("auto_base"))
-			{
-				System.out.println("no base information!");
-			}
-			else
-			{
-				int type=getTableType(targetTable);
-				ResultSet rs=getSqlAndQuery(index,params,tables,"auto_base","auto_id",null,null,null,null);
+			// System.out.println(tables);
+			ArrayList<String> autoIds = new ArrayList<String>();
+			if (tables.keySet() != null)
+				autoIds = doesAutoIdExist(params, index, tables);
+			for (int i = 0; i < autoIds.size(); i++) {
+				ResultSet rs = getSqlAndQuery2(targetTable, target, "auto_id",
+						autoIds.get(i), "i", "e");
 				try {
-					while(rs.next())
-					{
-						String autoId=rs.getString("auto_id");
-						boolean rOne=true;
-						if(tables.keySet()!=null)
-							rOne = doesAutoIdExist(params, index, tables, autoId,rOne);
-						if(rOne)
-						{
-							switch (type) {
-							case 0:
-							case 1:
-								ResultSet r1=getSqlAndQuery2(targetTable,target,"auto_id",autoId,"i","e");
-								if(r1.next())
-									results.add(r1.getString(target));
-								r1.close();
-								break;
-							case 2:
-								String configId=targetTable.substring(targetTable.indexOf("_")+1)+"_id";
-								ResultSet r21=getSqlAndQuery2("auto_config",configId,"auto_id",autoId,"i","e");
-								if(r21.next())
-								{
-									ResultSet r22=getSqlAndQuery2(targetTable,target,configId,r21.getString(configId),"i","e");
-									if(r22.next())
-										results.add(r22.getString(target));
-									r22.close();
-								}
-								r21.close();
-								break;
-							case 3:
-								ResultSet r31=getSqlAndQuery2("auto_engine","engine_type","auto_id",autoId,"i","e");
-								if(r31.next())
-								{
-									ResultSet r32=getSqlAndQuery2(targetTable,target,"engine_type",r31.getString("engine_type"),"s","e");
-									if(r32.next())
-										results.add(r32.getString(target));
-									r32.close();
-								}
-								r31.close();
-								break;
-							default:
-								break;
-							}
-						}
-					}
+					if (rs.next())
+						results.add(rs.getString(target));
 					rs.close();
 				} catch (SQLException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 		}
 		return results;
 	}
-
-	private boolean doesAutoIdExist(Map<String, ArrayList<String>> params,
-			int index, Map<String, ArrayList<String>> tables, String autoId,
-			boolean rOne) throws SQLException {
-		for(String table:tables.keySet())
-		{
-			int type=getTableType(table);
-			switch (type) {
-			case 1:
-				ResultSet r1=getSqlAndQuery(index,params,tables,table,"1","auto_id",autoId,"i","e");
-				rOne=rOne&&r1.next();
-				r1.close();
-				break;
-			case 2:
-				String configId=table.substring(table.indexOf("_")+1)+"_id";
-				ResultSet r21=getSqlAndQuery(index,params,tables,"auto_config",configId,"auto_id",autoId,"i","e");
-				if(r21.next())
-				{
-					ResultSet r22=getSqlAndQuery(index,params,tables,table,"1",configId,r21.getString(configId),"i","e");
-					rOne=rOne&&r22.next();
-					r22.close();
-				}
-				r21.close();
-				break;
-			case 3:
-				ResultSet r31=getSqlAndQuery(index,params,tables,"auto_engine","engine_type","auto_id",autoId,"i","e");
-				if(r31.next())
-				{
-					ResultSet r32=getSqlAndQuery(index,params,tables,table,"1","engine_type",r31.getString("engine_type"),"s","e");
-					rOne=rOne&&r32.next();
-					r32.close();
-				}
-				r31.close();
-				break;
-			default:
-				break;
-			}
-		}
-		return rOne;
+	
+	/**
+	 * 比较类问题查询
+	 * @param target
+	 * @param params
+	 */
+	private void compareQuery(String target,Map<String, ArrayList<String>> params) {
+		ArrayList<String> r1=singleQuery(target,params,0);
+		ArrayList<String> r2=singleQuery(target,params,1);
+		System.out.println(r1);
+		System.out.println(r2);
 	}
+	
 
-	private boolean existQuery2(Map<String, ArrayList<String>> params) {
-		// TODO Auto-generated method stub
-		return existQuery(params,0)&&existQuery(params,1);
-	}
-
-	private boolean existQuery(Map<String, ArrayList<String>> params,int index) {
-		// TODO Auto-generated method stub
-		boolean rAll=false;
-		Map<String, ArrayList<String>> tables = getTables(params);
-		//System.out.println(tables);
-		if(!tables.keySet().contains("auto_base"))
-		{
-			System.out.println("no base information!");
-		}
-		else
-		{
-			ResultSet rs=getSqlAndQuery(index,params,tables,"auto_base","auto_id",null,null,null,null);
+	/**
+	 * 获取满足所有属性约束的汽车ID
+	 * @param params
+	 * @param index
+	 * @param tables
+	 * @return
+	 */
+	private ArrayList<String> doesAutoIdExist(
+			Map<String, ArrayList<String>> params, int index,
+			Map<String, ArrayList<String>> tables) {
+		ArrayList<ArrayList<String>> results = new ArrayList<ArrayList<String>>();
+		for (String table : tables.keySet()) {
+			ArrayList<String> autoIds = new ArrayList<String>();
+			ResultSet rs = getSqlAndQuery(index, params, tables, table,
+					"auto_id");
 			try {
-				while(rs.next())
-				{
-					String autoId=rs.getString("auto_id");
-					boolean rOne=true;
-					if(tables.keySet()==null)
-						break;
-					rOne = doesAutoIdExist(params, index, tables, autoId, rOne);
-					rAll=rAll||rOne;
-					if(rAll)
-						break;
+				while (rs.next()) {
+					autoIds.add(rs.getString("auto_id"));
 				}
 				rs.close();
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			results.add(autoIds);
 		}
-		return rAll;
-		
+		return getIntersection(results);
 	}
 
+	/**
+	 * 求集合的交集
+	 * @param results
+	 * @return
+	 */
+	private ArrayList<String> getIntersection(
+			ArrayList<ArrayList<String>> results) {
+		ArrayList<String> r=results.get(0);
+		for(int i=1;i<results.size();i++)
+		{
+			r.retainAll(results.get(i));
+		}
+		return r;
+	}
+
+	/**
+	 * 将属性集合按照所在的表格分类
+	 * @param params
+	 * @return
+	 */
 	private Map<String, ArrayList<String>> getTables(
 			Map<String, ArrayList<String>> params) {
 		Map<String, ArrayList<String>> tables = new HashMap<String, ArrayList<String>>();
@@ -306,27 +263,31 @@ public class QuestionProcessing {
 		}
 		return tables;
 	}
-    /**
-     * 判断表格类型，如果是auto_base,返回0，如果是其它auto表，返回1，如果是config表，返回2，如果是auto_engine_base表，返回3
-     * @param table
-     * @return
-     */
-	private int getTableType(String table) {
-		// TODO Auto-generated method stub
-		if (table.equals("auto_base"))
-			return 0;
-		if (table.equals("auto_engine_base"))
-			return 3;
-		for (String str : autoSet) {
-			if (table.equals(str))
-				return 1;
+	
+	/**
+	 * 根据参数集合获取哪个属性对应的值是缺失的
+	 * @param params
+	 * @return
+	 */
+	private String getTargetProp(Map<String, ArrayList<String>> params) {
+		String target = null;
+		for (String key : params.keySet()) {
+			if (params.get(key) == null) {
+				target = key;
+				params.remove(key);
+				break;
+			}
 		}
-		for (String str : configSet) {
-			if (table.equals(str))
-				return 2;
-		}
-		return -1;
+		return target;
 	}
+	
+	/**
+	 * 获取属性在sql语句中对应的部分字符串
+	 * @param value
+	 * @param dataType
+	 * @param matchType
+	 * @return
+	 */
 	private String getPropValueStr(String value,String dataType, String matchType)
 	{
 		String result="";
@@ -342,10 +303,19 @@ public class QuestionProcessing {
 		}
 		return result;
 	}
+	
+	/**
+	 * 获取查询单张表的sql语句
+	 * @param index
+	 * @param params
+	 * @param tables
+	 * @param tableName
+	 * @param target
+	 * @return
+	 */
 	private ResultSet getSqlAndQuery(int index,Map<String, ArrayList<String>> params,
 			Map<String, ArrayList<String>> tables, String tableName,
-			String target, String extraPropName, String extraPropValue,
-			String extraPropType, String PropMatchType)
+			String target)
 	{
 		Map<String, String> dbNames=loader.getDbNames();
 		Map<String, String> dataType=loader.getDataType();
@@ -362,13 +332,22 @@ public class QuestionProcessing {
 								dataType.get(prop), matchType.get(prop));
 			}
 		}
-		if(extraPropName!=null && extraPropValue!=null)
-			sql=sql+" and "+extraPropName+getPropValueStr(extraPropValue,extraPropType,PropMatchType);
 		System.out.println(sql);
 		ResultSet rs=con.executeQuerySql(sql);
 		return rs;
 	}
 	
+	
+	/**
+	 * 获取查询单张表的sql语句
+	 * @param tableName
+	 * @param target
+	 * @param extraPropName
+	 * @param extraPropValue
+	 * @param extraPropType
+	 * @param PropMatchType
+	 * @return
+	 */
 	private ResultSet getSqlAndQuery2(String tableName, String target,
 			String extraPropName, String extraPropValue, String extraPropType,
 			String PropMatchType)

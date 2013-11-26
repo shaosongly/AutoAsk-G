@@ -2,8 +2,6 @@ package test;
 
 import java.util.ArrayList;
 import java.util.Map;
-
-import configuration.ConfigurationFileLoader;
 import question.QuestionProcessing;
 
 public class AskTest {
@@ -12,7 +10,9 @@ public class AskTest {
 		// TODO Auto-generated method stub
 		String path = "D:/correspondence.txt";
 		//String question="品牌;宝马,品牌;奔驰,级别;中型车,级别;中型车,车体结构;三厢车,车体结构;三厢车,外部配置;电动天窗:标配,外部配置;电动天窗:标配,进气形式;涡轮增压,进气形式;涡轮增压";
-		String question="品牌;宝马,级别;中型车,进气形式;?";
+		String question="品牌;宝马,品牌;奔驰,级别;中型车,级别;中型车,价格;?";
+		//String question="品牌;奔驰,级别;中型车,车体结构;三厢车,价格;?";
+		//String question="品牌;宝马,级别;中型车,车体结构;三厢车,进气形式;涡轮增压";
 		//ConfigurationFileLoader loader=new ConfigurationFileLoader(path);
 		//loader.fileLoad();
 		QuestionProcessing qs = new QuestionProcessing(path);
