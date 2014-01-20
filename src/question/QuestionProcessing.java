@@ -6,150 +6,118 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-
-
 import configuration.ConfigurationFileLoader;
 import dao.ConnectionUtil;
 
 public class QuestionProcessing {
 	
-	private ConfigurationFileLoader loader = null;
-	private ConnectionUtil con = null;	
+	private ConfigurationFileLoader loader = null;//加载配置文件
+	private ConnectionUtil con = null;	//用于连接数据库
+	
+	
 	public QuestionProcessing(String path) {
 		super();
-		loader=new ConfigurationFileLoader(path);
-		loader.fileLoad();
+		loader=new ConfigurationFileLoader(path);//初始化配置文件加载器
+		loader.fileLoad();//加载配置文件中的信息到内存
 		con = new ConnectionUtil();
-		con.dbConnect();
+		con.dbConnect();//连接数据库
 	}
-    /**
-     * 问题解析，解析传入的问题，将参数对存入Map集合
-     * @param question
-     * @return
-     */
-	public Map<String,ArrayList<String>> questionParse(String question)
-	{
-		Map<String,ArrayList<String>> params=new HashMap<String,ArrayList<String>>();
-		String[] pairs=question.split(",");
-		for(int i=0;i<pairs.length;i++)
-		{
-			String[] kv=pairs[i].split(";");
-			String key=kv[0];
-			String value=kv[1];
-			if(value.equals("?"))
-			{
-				params.put(key, null);
-				continue;
-			}
-			if(params.containsKey(key))
-			{
-				params.get(key).add(value);				
-			}
+	/**
+	 * 解析传入的问题参数，存储到Map集合
+	 * @param question 问题参数
+	 * @param params   限定属性集合
+	 * @param querys    待查询的属性
+	 */
+	public void questionParse(String question,
+			Map<String, ArrayList<String>> params,
+			Map<String, ArrayList<String>> querys) {
+		String[] pairs = question.split(",");// 先将问题按逗号进行分割，得到key;value对
+		// 对于每一对属性和值
+		for (int i = 0; i < pairs.length; i++) {
+			String[] kv = pairs[i].split(":");// 按照冒号分割
+			String key = kv[0];// 得到属性名（中文）
+			String value = kv[1];// 得到属性值
+			if (isQuery(value))
+				saveKV(querys, key, value);
 			else
-			{
-				ArrayList<String> tempList=new ArrayList<String>();
-				tempList.add(value);
-				params.put(key, tempList);
-			}
+				saveKV(params, key, value);
 		}
-		return params;
+	}
+
+	private void saveKV(Map<String, ArrayList<String>> map, String key,
+			String value) {
+		if (map.containsKey(key)) {
+			map.get(key).add(value);
+		} else {
+			ArrayList<String> tempList = new ArrayList<String>();
+			tempList.add(value);
+			map.put(key, tempList);
+		}
+	}
+	
+	private boolean isQuery(String value) {
+		// TODO Auto-generated method stub
+		String[] flag = { "?", "min", "max", "avg", "num" };
+		for (String str : flag) {
+			if (value.equals(str))
+				return true;
+		}
+		return false;
 	}
 	
 	/**
-	 * 返回问题类型 -1表示异常 1判断，2表示2个主体的判断，11表示查询，12表示比较
+	 * 检查传入的参数是否合法 
 	 * @param params
 	 * @return
 	 */
-	public int questionClassification(Map<String,ArrayList<String>> params)
+	public int questionVerify(Map<String,ArrayList<String>> params)
 	{
 		int flag=1;
-		int qValue=0,countS1=0,countS2=0;
-		if(params.size()==0)
-			return -1;
 		for (ArrayList<String> value : params.values()) {
-			if(value==null)
-				qValue++;
-			else if(value.size()>2)
+			if(value.size()>2)
 				return -1;
 			else if(value.size()==2)
-				countS2++;
-			else
-				countS1++;
+				flag=2;
 		}
-		if(qValue>1||(countS1!=0&&countS2!=0))
-			return -1;
-		if(countS1!=0)
-			flag=1;
-		else																																																															
-			flag=2;
-		return qValue*10+flag;
+		if(flag==2)
+			autoCompleValues(params);
+		return flag;
 	}
 	
 	/**
-	 * 问题查询，根据不同问题类型，查询数据库获取信息
+	 * 当问题中含有两个主体时，自动补全只有一个值的属性
 	 * @param params
 	 */
-	public void questionQuery(Map<String, ArrayList<String>> params) {
-		int qType = questionClassification(params);
-		switch (qType) {
-		case -1:
+	private void autoCompleValues(Map<String, ArrayList<String>> params) {
+		for (ArrayList<String> value : params.values()) {
+			if(value.size()==1)
+				value.add(value.get(0));
+		}
+	}
+	
+
+	public Map<String, ArrayList<String>> questionQuery(Map<String, ArrayList<String>> params,
+			Map<String, ArrayList<String>> querys) {
+		int num = questionVerify(params);
+		if (num == -1) {
 			System.out.println("Wrong input! Can not answer this question!");
-			break;
-		case 1:
-			boolean r1=existQuery(params,0);
-			System.out.println(r1);
-			break;
-		case 2:
-			boolean r2=existQuery2(params);
-			System.out.println(r2);
-			break;
-		case 11:
-			String target = getTargetProp(params);
-			ArrayList<String>results=singleQuery(target,params,0);
-			System.out.println(results);
-			break;
-		case 12:
-			String target2 = getTargetProp(params);
-			compareQuery(target2,params);
-			break;
-		default:
-			break;
+			return null;
 		}
-
+		Map<String, ArrayList<String>> results=new HashMap<String, ArrayList<String>>();
+		if (querys.size() == 0) {
+			Map<String, ArrayList<String>> tables = getTables(params);
+			for(int i=0;i<num;i++)
+				results.put("autoId"+Integer.toString(i), doesAutoIdExist(params, i, tables));
+		} else {
+			for(int i=0;i<num;i++)
+				for(String target:querys.keySet())
+				{
+					results.put(target+Integer.toString(i), singleQuery(target,params,i));
+				}
+		}
+		return results;
 	}
 
-	/**
-	 * 一个主体的判断
-	 * @param params
-	 * @param index
-	 * @return
-	 */
-	private boolean existQuery(Map<String, ArrayList<String>> params,int index) {
-		Map<String, ArrayList<String>> tables = getTables(params);
-		//System.out.println(tables);
-		ArrayList<String> autoIds= doesAutoIdExist(params, index, tables);
-		if(autoIds.size()>0)
-			return true;
-		else
-			return false;		
-	}
-	
-	/**
-	 * 两个主体的判断
-	 * @param params
-	 * @return
-	 */
-	private boolean existQuery2(Map<String, ArrayList<String>> params) {
-		return existQuery(params,0)&&existQuery(params,1);
-	}
-
-	/**
-	 * 查询单个主体的信息
-	 * @param target
-	 * @param params
-	 * @param index
-	 * @return
-	 */
 	private ArrayList<String> singleQuery(String target,Map<String, ArrayList<String>> params,int index) {
 		ArrayList<String> results = new ArrayList<String>();
 		Map<String, String> dbTables = loader.getDbTables();
@@ -185,18 +153,6 @@ public class QuestionProcessing {
 			}
 		}
 		return results;
-	}
-	
-	/**
-	 * 比较类问题查询
-	 * @param target
-	 * @param params
-	 */
-	private void compareQuery(String target,Map<String, ArrayList<String>> params) {
-		ArrayList<String> r1=singleQuery(target,params,0);
-		ArrayList<String> r2=singleQuery(target,params,1);
-		System.out.println(r1);
-		System.out.println(r2);
 	}
 	
 
@@ -264,22 +220,6 @@ public class QuestionProcessing {
 		return tables;
 	}
 	
-	/**
-	 * 根据参数集合获取哪个属性对应的值是缺失的
-	 * @param params
-	 * @return
-	 */
-	private String getTargetProp(Map<String, ArrayList<String>> params) {
-		String target = null;
-		for (String key : params.keySet()) {
-			if (params.get(key) == null) {
-				target = key;
-				params.remove(key);
-				break;
-			}
-		}
-		return target;
-	}
 	
 	/**
 	 * 获取属性在sql语句中对应的部分字符串
@@ -288,22 +228,83 @@ public class QuestionProcessing {
 	 * @param matchType
 	 * @return
 	 */
-	private String getPropValueStr(String value,String dataType, String matchType)
-	{
-		String result="";
-		if(matchType.equals("l"))
-			result+=" like '%%"+value+"%%'";
-		else
-		{
-			result+=" = ";
-			if(dataType.equals("s"))
-				result+="'"+value+"'";
-			else
-				result+=value;
+	private String getPropValueStr(String prop,String value, String dataType,
+			String matchType) {
+		String result = "";
+		String temp[];
+		int type = getConditionalExpression(value);
+		switch (type) {
+		case 0:
+			if (matchType.equals("l"))// like
+				result += " like '%%" + value + "%%'";
+			else {
+				result += " = ";
+				if (dataType.equals("s"))
+					result += "'" + value + "'";
+				else
+					result += value;
+			}
+			break;
+		case 1:
+			result += " " + value;
+			break;
+		case 2:
+			temp = value.substring(1, value.length() - 1).split(";");
+			result += " between " + temp[0] + " and " + temp[1];
+			break;
+		case 3:
+			temp = value.substring(1, value.length() - 1).split(";");
+			if (matchType.equals("l"))
+			{
+				result += " like '%%" + temp[0] + "%%'";
+				for(int i=1;i<temp.length;i++)
+					result += " or "+prop+" like '%%" + temp[i] + "%%'";
+			}
+			else{
+				result += " in (";
+				if (dataType.equals("s")) {
+					for (String str : temp)
+						result += "'" + str + "',";
+				} else {
+					for (String str : temp)
+						result += str + ",";
+				}
+				result += ")";
+			}
+			break;
+		default:
+			break;
 		}
+
 		return result;
 	}
-	
+	/**
+	 * 判断属性值是否包含条件
+	 * @param value
+	 * @return
+	 */
+	private int getConditionalExpression(String value) {
+		// TODO Auto-generated method stub
+		String[] exp={"<",">","[","("};
+		String f=value.substring(0, 1);
+		int flag=0;
+		for(String str:exp)
+		{
+			if(f.equals(str))
+			{
+				flag=1;
+				break;
+			}
+		}
+		if(flag==1)
+		{
+			if(f.equals("["))
+				flag=2;
+			else if(f.equals("("))
+				flag=3;
+		}
+		return flag;
+	}
 	/**
 	 * 获取查询单张表的sql语句
 	 * @param index
@@ -328,7 +329,7 @@ public class QuestionProcessing {
 				sql = sql
 						+ " and "
 						+ dbNames.get(prop)
-						+ getPropValueStr(params.get(prop).get(index),
+						+ getPropValueStr(dbNames.get(prop),params.get(prop).get(index),
 								dataType.get(prop), matchType.get(prop));
 			}
 		}
@@ -353,7 +354,7 @@ public class QuestionProcessing {
 			String PropMatchType)
 	{
 		String sql="select "+target+" from "+tableName+" where 1=1";
-		sql=sql+" and "+extraPropName+getPropValueStr(extraPropValue,extraPropType,PropMatchType);
+		sql=sql+" and "+extraPropName+getPropValueStr(extraPropName,extraPropValue,extraPropType,PropMatchType);
 		System.out.println(sql);
 		ResultSet rs=con.executeQuerySql(sql);
 		return rs;
