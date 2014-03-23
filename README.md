@@ -3,7 +3,6 @@ AutoAsk-G
 
 问答系统问题转换程序
 
-@(汽车问答程序设计)
 
 ##数据库设计
 
@@ -13,13 +12,13 @@ AutoAsk-G
 
  数据库的设计应该从实际应用角度出发，涵盖用户买车过程中可能遇到的各种问题。通过查阅资料和调研许多汽车网站，我们将相关信息分为汽车参数信息、配置信息、评价信息和经销商信息4个组成部分。数据库的整体结构如下图所示：
  
-  ![Alt text](data:image,local://db1.png)
+  ![整体结构](http://github.com/shaosongly/AutoAsk-G/raw/master/pic/db1.png)
   
 2. 具体实现
  
  基于上述结构，我们建立如下数据表：
 
- ![Alt text](data:image,local://db2.png)
+ ![tables](http://github.com/shaosongly/AutoAsk-G/raw/master/pic/db2.png)
  
  auto_base是主表，包含了汽车品牌、车型、级别和价格等基本信息，以汽车ID作为主键，和其他各表关联，可以查询到汽车各部件的参数和配置以及评价指标，为用户选购提供指导。经销商表会描述经销商的公司名称、经营范围、地址、电话和类型等内容，方便用户选择合适的购买方式。
 
