@@ -22,11 +22,12 @@ public class QuestionProcessing {
 		con = new ConnectionUtil();
 		con.dbConnect();//连接数据库
 	}
+	
 	/**
 	 * 解析传入的问题参数，存储到Map集合
 	 * @param question 问题参数
 	 * @param params   限定属性集合
-	 * @param querys    待查询的属性
+	 * @param querys   待查询的属性
 	 */
 	public void questionParse(String question,
 			Map<String, ArrayList<String>> params,
@@ -43,7 +44,13 @@ public class QuestionProcessing {
 				saveKV(params, key, value);
 		}
 	}
-
+	
+	/**
+	 * 将key、value存储到相应的map集合中
+	 * @param map
+	 * @param key
+	 * @param value
+	 */
 	private void saveKV(Map<String, ArrayList<String>> map, String key,
 			String value) {
 		if (map.containsKey(key)) {
@@ -55,6 +62,11 @@ public class QuestionProcessing {
 		}
 	}
 	
+	/**
+	 * 判断是否是待查询参数
+	 * @param value
+	 * @return
+	 */
 	private boolean isQuery(String value) {
 		// TODO Auto-generated method stub
 		String[] flag = { "?", "min", "max", "avg", "num" };
@@ -67,10 +79,10 @@ public class QuestionProcessing {
 	
 	/**
 	 * 检查传入的参数是否合法 
-	 * @param params
-	 * @return
+	 * @param params 限定属性集合
+	 * @return -1表示参数不合法；1表示问题只涉及到一个对象；2表示问题涉及到两个对象
 	 */
-	public int questionVerify(Map<String,ArrayList<String>> params)
+	private int questionVerify(Map<String,ArrayList<String>> params)
 	{
 		int flag=1;
 		for (ArrayList<String> value : params.values()) {
@@ -84,8 +96,9 @@ public class QuestionProcessing {
 		return flag;
 	}
 	
+	
 	/**
-	 * 当问题中含有两个主体时，自动补全只有一个值的属性
+	 * 当问题涉及两个对象时，自动补全只有一个值的属性
 	 * @param params
 	 */
 	private void autoCompleValues(Map<String, ArrayList<String>> params) {
@@ -95,17 +108,25 @@ public class QuestionProcessing {
 		}
 	}
 	
-
+	/**
+	 * 根据传入参数查询数据库返回结果
+	 * @param params
+	 * @param querys
+	 * @return
+	 */
 	public Map<String, ArrayList<String>> questionQuery(Map<String, ArrayList<String>> params,
 			Map<String, ArrayList<String>> querys) {
 		int num = questionVerify(params);
 		if (num == -1) {
-			System.out.println("Wrong input! Can not answer this question!");
+			System.out.println("错误输入！无法回答该问题！");
 			return null;
 		}
 		Map<String, ArrayList<String>> results=new HashMap<String, ArrayList<String>>();
 		if (querys.size() == 0) {
 			Map<String, ArrayList<String>> tables = getTables(params);
+			if (tables == null) {
+				return null;
+			}
 			for(int i=0;i<num;i++)
 				results.put("autoId"+Integer.toString(i), doesAutoIdExist(params, i, tables));
 		} else {
@@ -124,6 +145,10 @@ public class QuestionProcessing {
 		Map<String, String> dbNames = loader.getDbNames();
 		String targetTable =  dbTables.get(target);
 		target=dbNames.get(target);
+		if(targetTable ==null || target == null) {
+			System.out.println("待查询参数名错误！");
+			System.exit(-1);
+		}
 		Map<String, ArrayList<String>> tables = getTables(params);
 		if (tables.size() == 0
 				|| (tables.size() == 1 && tables.keySet().contains(targetTable))) {
@@ -210,6 +235,10 @@ public class QuestionProcessing {
 		Map<String, String> dbTables = loader.getDbTables();
 		for (String key : params.keySet()) {
 			String tableName = dbTables.get(key);
+			if(tableName == null) {
+				System.out.println("参数名错误，配置文件中不存在参数"+key+"！");
+				System.exit(-1);
+			}
 			if (!tables.containsKey(tableName)) {
 				ArrayList<String> tempList = new ArrayList<String>();
 				tempList.add(key);

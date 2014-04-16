@@ -8,9 +8,18 @@ import java.sql.Statement;
 
 public class ConnectionUtil {
 	
+	/* mysql数据库连接参数
+	private String url = "jdbc:mysql://localhost:3306/autoInfor";
+	private String username = "root";
+	private String password = "900620";
+	private String driver="com.mysql.jdbc.Driver";
+	*/
+	
+	//Access数据库连接参数
 	private String url = "jdbc:odbc:autoData";
 	private String username = "admin";
 	private String password = "admin";
+	private String driver="sun.jdbc.odbc.JdbcOdbcDriver";
 	private Connection con;
 
 	
@@ -27,7 +36,7 @@ public class ConnectionUtil {
 
 	public void dbConnect() {
 		try {
-			Class.forName("sun.jdbc.odbc.JdbcOdbcDriver");
+			Class.forName(driver);
 			// System.out.println("connection success");
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
