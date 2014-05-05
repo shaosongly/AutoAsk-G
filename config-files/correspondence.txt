@@ -34,10 +34,10 @@
 颜色	color	auto_color	s	l
 外部配置	external	auto_config	s	l
 内部配置	internal	auto_config	s	l
-座椅	seat	auto_config	s	l
-车窗	window	auto_config	s	l
-空调	air_conditioner	auto_config	s	l
-灯光	light	auto_config	s	l
+座椅配置	seat	auto_config	s	l
+车窗配置	window	auto_config	s	l
+空调配置	air_conditioner	auto_config	s	l
+灯光配置	light	auto_config	s	l
 多媒体配置	multimedia	auto_config	s	l
 操控配置	manipulate	auto_config	s	l
 安全配置	safety	auto_config	s	l

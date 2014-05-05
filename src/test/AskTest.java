@@ -12,7 +12,7 @@ public class AskTest {
 		//配置文件路径
 		String path = "config-files/correspondence.txt";
 		
-		//传入的问题
+		//问题示例
 		//String question="品牌:宝马,品牌:奔驰,级别:中型车,车身结构:三厢车,进气形式:涡轮增压";
 		//String question="品牌:奔驰,级别:中型车,车身结构:三厢车,价格:?";
 		//String question="品牌:宝马,级别:中型车,级别:SUV,车身结构:三厢车,车身结构:SUV,进气形式:涡轮增压";
@@ -28,10 +28,12 @@ public class AskTest {
 		Map<String,ArrayList<String>> querys=new HashMap<String,ArrayList<String>>();
 		Map<String,ArrayList<String>> results=new HashMap<String,ArrayList<String>>();
 		
+		System.out.println("生成的SQL语句为：");
 		qs.questionParse(question,params,querys);
 		
 		//根据解析结果，转换SQL查询数据库
 		results=qs.questionQuery(params,querys);
+		System.out.println("查询到的结果为：");
 		System.out.println(results);
 
 	}
